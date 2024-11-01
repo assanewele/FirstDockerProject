@@ -53,5 +53,14 @@ def hello():
                     " <span style=\"color:blue\">curl http://127.0.0.1:5000/car-api/get-cars</span></h4>")
     return html_content
 
+@app.route('/car-api/health/ready')
+def readiness():
+    return jsonify({"status": "ready"}), 200
+
+@app.route('/car-api/health/live')
+def liveness():
+    return jsonify({"status": "alive"}), 200
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

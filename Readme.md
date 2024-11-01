@@ -1,93 +1,79 @@
-# CarsAPI Project
 
-## The Backend
-This API is built with **Flask** and allows you to:
-- Register a car by providing its **brand** and **color**.
-- Retrieve a list of all registered cars.
-### The docker image name
-##### weleassane/car-api-image:v1.0.0
-Once the container is up and running, you can access the API's welcome page by navigating to the API address in your browser.
+# Projet API Flask avec Kubernetes
 
-### Endpoints
-- `/car-api/post-car` : Add a car.
-- `/car-api/get-cars` : Retrieve all cars.
+## Prérequis
 
-### Sample Requests
-You can test the API using `curl` commands:
+- Minikube : pour créer un cluster Kubernetes local.
+- kubectl : l'outil en ligne de commande pour interagir avec Kubernetes.
+- Docker : pour construire les images Docker.
+
+## Étapes de déploiement
+
+### 1. Construire l'image Docker
+
+Naviguer dans le dossier contenant le `Dockerfile`, puis exécutez la commande suivante pour construire l'image Docker :
 
 ```bash
-# Add a car
-curl -X POST http://127.0.0.1:5000/car-api/post-car -H "Content-Type: application/json" -d '{"brand": "Toyota", "colour": "Red"}'
-
-# Get all cars
-curl http://127.0.0.1:5000/car-api/get-cars
+docker build -t weleassane/car-api-image:v1.0.0 .
 ```
+#### Remarque:
+J'ai gardé Python:3.9 au lieu d'utiliser Python:3.9-alpine car si je l'utilise, l'image ne build pas et renvoie des erreurs. A ce qu'il parait, ceci est causé par les requirements du flask.
+### 2. Lancer Minikube
 
-## The Database
-The API uses a **MySQL** database. To test or run this API, you need to have a MySQL server running. For simplicity, the database is containerized in this project.
-
-## Docker Setup
-
-### Docker Network
-You will need a Docker network to link the MySQL container with the API container. We have named our network `car-api-network`. You can create it using the following command:
+Démarrez Minikube avec 3 nœuds :
 
 ```bash
-docker network create car-api-network
+minikube start --nodes 3 --driver=docker
 ```
 
-### The Database Container
-To run the MySQL container, you'll need to set environment variables to configure the database:
+### 3. Appliquer les manifestes Kubernetes
 
-- `MYSQL_ROOT_PASSWORD`: Set the root user password.
-- `MYSQL_DATABASE`: Specify the name of the database to be created at startup.
-- `MYSQL_USER` and `MYSQL_PASSWORD`: Optionally create a new user with these credentials.
+Naviguez jusqu'au dossier contenant les fichiers manifestes Kubernetes (`k8s`) et appliquez-les avec les commandes suivantes :
 
-#### Example Command for Running the MySQL Container:
 ```bash
-docker run --network car-api-network \
-    --name mysql-container-for-car-api \
-    -e MYSQL_ROOT_PASSWORD=password \
-    -e MYSQL_DATABASE=cars_db \
-    -p 3306:3306 mysql
+kubectl apply -f k8s/database-deployment.yaml
+kubectl apply -f k8s/database-service.yaml
+kubectl apply -f k8s/database-secret.yaml
+kubectl apply -f k8s/database-configmap.yaml
+kubectl apply -f k8s/backend-configmap.yaml
+kubectl apply -f k8s/backend-secret.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/backend-service.yaml
 ```
 
-### The API Container
-To run the API container, you need to pass the following environment variables:
+### 4. Vérifier le déploiement
 
-- `DATABASE_HOST`: The hostname of the database (MySQL) container.
-- `DATABASE_USER`: The MySQL username.
-- `DATABASE_PASSWORD`: The MySQL password.
-- `DATABASE_NAME`: The name of the database.
-- `DATABASE_PORT`: The port on which the MySQL database is running.
+Pour vérifier que les pods sont en cours d'exécution, utilisez la commande :
 
-#### Example Command for Running the API Container:
 ```bash
-docker run --network car-api-network \
-    --name car-api-container \
-    -e DATABASE_HOST=mysql-container-for-car-api \
-    -e DATABASE_USER=root \
-    -e DATABASE_PASSWORD=password \
-    -e DATABASE_NAME=cars_db \
-    -e DATABASE_PORT=3306 \
-    -p 5000:5000 weleassane/car-api-image:v1.0.0
+kubectl get pods
 ```
 
-## Docker Compose
+### 5. Accéder à l'API
 
-To simplify container orchestration and ensure that the database is ready before the API container starts, **Docker Compose** is used. This ensures there are no dependency issues since the API relies on the database being available.
+Exposez le service backend via un NodePort pour accéder à l'API :
 
-### Customizing Environment Variables
-In the `docker-compose.yml` file, you can change the default environment variables according to your needs.
+```bash
+minikube service backend-service --url
+```
 
-### Data Persistence
-A volume is added to **persist the MySQL database data**. This ensures that the data remains available even if the containers are stopped or recreated.
+Cela vous donnera l'URL que vous pouvez utiliser pour interagir avec l'API.
 
-### Commands to Start and Stop the Containers
-- To start the services, use:
-  ```bash
-  docker-compose up -d
-  ```
-- To stop and remove the containers, use:
-  ```bash
-  docker-compose down
-  ```
+### 6. Points de terminaison
+
+- **Ajouter une voiture :**
+
+```bash
+curl -X POST http://<adresse_node>:<port>/car-api/post-car -H "Content-Type: application/json" -d '{"brand": "Toyota", "colour": "Red"}'
+```
+
+- **Lister toutes les voitures :**
+
+```bash
+curl http://<adresse_node>:<port>/car-api/get-cars
+```
+
+- **Vérifier la santé de l'application :**
+
+  - **Liveness probe :** `/health/live`
+  - **Readiness probe :** `/health/ready`
