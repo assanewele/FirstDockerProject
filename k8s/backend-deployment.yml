@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: car-api
 spec:
-  replicas: 3  # Nombre de réplicas
+  replicas: 3
   selector:
     matchLabels:
       app: car-api
@@ -37,13 +37,13 @@ spec:
           value: "3306"
         readinessProbe:
           httpGet:
-            path: /health/ready
+            path: /car-api/health/ready
             port: 5000
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
-            path: /health/live
+            path: /car-api/health/live
             port: 5000
           initialDelaySeconds: 15
           periodSeconds: 20
